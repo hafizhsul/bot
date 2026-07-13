@@ -1,5 +1,6 @@
 # tests/test_github_client.py
 import github_client
+import requests
 from unittest import mock
 
 
@@ -28,6 +29,25 @@ def test_build_search_query():
     assert "game engine" in q
     assert "language:rust" in q
     assert "stars:>=100" in q
+
+
+def test_build_search_query_min_stars_zero():
+    q = github_client.build_search_query("game engine", None, 0)
+    assert "stars:>=0" in q
+
+
+def test_parse_item_missing_owner():
+    item = {
+        "full_name": "a/b",
+        "html_url": "u",
+        "description": "d",
+        "stargazers_count": 1,
+        "language": "Python",
+        "forks_count": 0,
+        "updated_at": "x",
+    }
+    p = github_client._parse_item(item)
+    assert p["avatar"] is None
 
 
 def test_parse_item():
@@ -94,3 +114,15 @@ def test_search_repositories_api_error():
             assert False, "expected GitHubAPIError"
         except github_client.GitHubAPIError:
             pass
+
+
+def test_search_repositories_network_error():
+    with mock.patch(
+        "github_client.requests.get",
+        side_effect=requests.exceptions.RequestException("boom"),
+    ):
+        try:
+            github_client.search_repositories("q")
+            assert False, "expected GitHubAPIError"
+        except github_client.GitHubAPIError as e:
+            assert "network error" in str(e)

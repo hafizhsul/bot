@@ -1,5 +1,5 @@
 # github_client.py
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import requests
 
@@ -19,7 +19,7 @@ class GitHubAPIError(Exception):
 def build_trending_query(language: str | None, period: str) -> str:
     if period not in PERIOD_DAYS:
         raise ValueError("period must be one of: day, week, month")
-    since = (datetime.utcnow() - timedelta(days=PERIOD_DAYS[period])).strftime(
+    since = (datetime.now(timezone.utc) - timedelta(days=PERIOD_DAYS[period])).strftime(
         "%Y-%m-%d"
     )
     query = f"pushed:>{since}"
@@ -34,7 +34,7 @@ def build_search_query(
     q = query
     if language:
         q += f" language:{language}"
-    if min_stars:
+    if min_stars is not None:
         q += f" stars:>={min_stars}"
     return q
 
@@ -48,7 +48,7 @@ def _parse_item(item: dict) -> dict:
         "language": item.get("language") or "Unknown",
         "forks": item["forks_count"],
         "updated_at": item["updated_at"],
-        "avatar": item["owner"]["avatar_url"],
+        "avatar": (item.get("owner", {}) or {}).get("avatar_url"),
     }
 
 
@@ -60,7 +60,10 @@ def search_repositories(query: str, per_page: int = 5) -> list[dict]:
         "per_page": per_page,
     }
     headers = {"Accept": "application/vnd.github+json"}
-    resp = requests.get(API_URL, params=params, headers=headers, timeout=10)
+    try:
+        resp = requests.get(API_URL, params=params, headers=headers, timeout=10)
+    except requests.exceptions.RequestException as e:
+        raise GitHubAPIError(f"network error: {e}")
     if resp.status_code == 403:
         raise GitHubRateLimitError()
     if resp.status_code != 200:
