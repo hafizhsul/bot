@@ -6,7 +6,11 @@ import github_client
 from config import DISCORD_TOKEN
 
 intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="/", intents=intents)
+bot = commands.Bot(
+    command_prefix="/",
+    intents=intents,
+    activity=discord.Activity(type=discord.ActivityType.watching, name="GitHub trends"),
+)
 
 
 def build_embed(repo: dict) -> discord.Embed:
@@ -27,7 +31,7 @@ def build_embed(repo: dict) -> discord.Embed:
 @bot.event
 async def on_ready() -> None:
     await bot.tree.sync()
-    print(f"Logged in as {bot.user} (id: {bot.user.id})")
+    print(f"Repo Radar online as {bot.user} (id: {bot.user.id})")
 
 
 @bot.tree.command(name="trending", description="Show trending GitHub repositories")

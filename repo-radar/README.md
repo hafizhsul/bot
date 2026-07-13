@@ -1,4 +1,4 @@
-# Discord GitHub Trending Bot
+# Repo Radar
 
 A Discord bot that surfaces trending and searchable GitHub repositories as rich cards.
 
