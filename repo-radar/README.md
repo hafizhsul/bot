@@ -23,9 +23,20 @@ A Discord bot that surfaces trending and searchable GitHub repositories as rich 
   Example: `/trending python week`
 - `/search <query> [language] [min_stars]` — keyword search.
   Example: `/search game engine language:rust min_stars:100`
+- `/suggest <interest> [count]` — recommend repos from a natural-language
+  interest, e.g. `/suggest professional PDF tools`. Requires `OPENROUTER_API_KEY`.
+- **Auto mode:** mention the bot or include words like "recommend"/"suggest"/
+  "find me"/"repos for"/"show me" in a message and it will suggest repos.
 
 ## Notes
 
 - Uses the official GitHub Search API unauthenticated (60 requests/hour).
   If you hit the limit, wait or add a token later.
 - Shows up to 5 results per command.
+
+## Environment
+
+Requires a second env var for suggestions:
+
+- `OPENROUTER_API_KEY` — get one at https://openrouter.ai/keys (free tier works
+  with the `openrouter/tencent/hy3:free` model).
