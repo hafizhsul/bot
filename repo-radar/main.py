@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import github_client
+import llm_client
 from config import DISCORD_TOKEN
 
 intents = discord.Intents.default()
@@ -26,6 +27,20 @@ def build_embed(repo: dict) -> discord.Embed:
     embed.add_field(name="\U0001f4be Language", value=repo["language"], inline=True)
     embed.set_footer(text=f"Updated: {repo['updated_at']}")
     return embed
+
+
+TRIGGER_WORDS = ("recommend", "suggest", "find me", "repos for", "show me")
+
+
+async def gather_suggestions(interest: str, count: int = 5) -> list[dict]:
+    """Turn an interest into GitHub repo dicts via the LLM + Search API."""
+    queries = llm_client.suggest_queries(interest)
+    repos: list[dict] = []
+    for q in queries:
+        repos.extend(github_client.search_repositories(q))
+        if len(repos) >= count:
+            break
+    return repos[:count]
 
 
 @bot.event
@@ -99,6 +114,80 @@ async def search(
         return
     for repo in repos:
         await interaction.followup.send(embed=build_embed(repo))
+
+
+@bot.tree.command(name="suggest", description="Recommend GitHub repos for a natural-language interest")
+@app_commands.describe(
+    interest="What you're interested in, e.g. 'professional PDF tools' or 'trending skills agent'",
+    count="Number of repos to show (default 5, max 10)",
+)
+async def suggest(
+    interaction: discord.Interaction,
+    interest: str,
+    count: int = 5,
+) -> None:
+    count = max(1, min(count, 10))
+    await interaction.response.defer()
+    try:
+        repos = await gather_suggestions(interest, count)
+    except llm_client.LLMError as exc:
+        await interaction.followup.send(f"Suggestion error: {exc}")
+        return
+    except github_client.GitHubRateLimitError:
+        await interaction.followup.send("GitHub rate limit reached, try again later.")
+        return
+    except github_client.GitHubAPIError as exc:
+        await interaction.followup.send(f"GitHub error: {exc}")
+        return
+
+    if not repos:
+        await interaction.followup.send(
+            "No repositories found. Try a different interest."
+        )
+        return
+    for repo in repos:
+        await interaction.followup.send(embed=build_embed(repo))
+
+
+@bot.event
+async def on_message(message: discord.Message) -> None:
+    if message.author == bot.user:
+        return
+    if message.content.startswith("/"):
+        return
+    text = message.content
+    mentioned = bot.user in message.mentions
+    has_trigger = any(word in text.lower() for word in TRIGGER_WORDS)
+    if not (mentioned or has_trigger):
+        return
+
+    interest = text
+    if mentioned:
+        interest = text.replace(f"<@{bot.user.id}>", "").replace(
+            f"<@!{bot.user.id}>", ""
+        )
+    interest = interest.strip()
+    if not interest:
+        return
+
+    await message.channel.send("🔎 Looking for repos based on your interest...")
+    try:
+        repos = await gather_suggestions(interest)
+    except llm_client.LLMError as exc:
+        await message.channel.send(f"Suggestion error: {exc}")
+        return
+    except github_client.GitHubRateLimitError:
+        await message.channel.send("GitHub rate limit reached, try again later.")
+        return
+    except github_client.GitHubAPIError as exc:
+        await message.channel.send(f"GitHub error: {exc}")
+        return
+
+    if not repos:
+        await message.channel.send("No repositories found. Try a different interest.")
+        return
+    for repo in repos:
+        await message.channel.send(embed=build_embed(repo))
 
 
 if __name__ == "__main__":
