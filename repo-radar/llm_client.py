@@ -20,6 +20,10 @@ SYSTEM_PROMPT = (
 class LLMError(Exception):
     """Raised when the LLM call fails or returns unusable output."""
 
+    def __init__(self, message: str, kind: str = "error"):
+        super().__init__(message)
+        self.kind = kind
+
 
 def _extract_json(text: str):
     fenced = re.search(r"```(?:json)?\s*(.*?)```", text, re.DOTALL)
@@ -29,7 +33,7 @@ def _extract_json(text: str):
 
 def suggest_queries(interest: str) -> list[str]:
     if not config.OPENROUTER_API_KEY:
-        raise LLMError("OPENROUTER_API_KEY is not set")
+        raise LLMError("OPENROUTER_API_KEY is not set", kind="missing_key")
     headers = {
         "Authorization": f"Bearer {config.OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
@@ -44,16 +48,16 @@ def suggest_queries(interest: str) -> list[str]:
     try:
         resp = requests.post(API_URL, headers=headers, json=body, timeout=20)
     except requests.exceptions.RequestException as e:
-        raise LLMError(f"network error: {e}")
+        raise LLMError(f"network error: {e}", kind="api")
     if resp.status_code != 200:
-        raise LLMError(f"OpenRouter returned status {resp.status_code}")
+        raise LLMError(f"OpenRouter returned status {resp.status_code}", kind="api")
     try:
         content = resp.json()["choices"][0]["message"]["content"]
         data = _extract_json(content)
     except (KeyError, ValueError, json.JSONDecodeError) as e:
-        raise LLMError(f"invalid response: {e}")
+        raise LLMError(f"invalid response: {e}", kind="bad_output")
     if not isinstance(data, list) or not data:
-        raise LLMError("response was not a non-empty list")
+        raise LLMError("response was not a non-empty list", kind="empty")
     if not all(isinstance(q, str) for q in data):
-        raise LLMError("response was not a list of strings")
+        raise LLMError("response was not a list of strings", kind="bad_output")
     return [q for q in data][:5]

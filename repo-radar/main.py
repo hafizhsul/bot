@@ -1,3 +1,5 @@
+import re
+
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -41,6 +43,16 @@ async def gather_suggestions(interest: str, count: int = 5) -> list[dict]:
         if len(repos) >= count:
             break
     return repos[:count]
+
+
+def _llm_error_message(exc: llm_client.LLMError) -> str:
+    if exc.kind == "missing_key":
+        return "Set OPENROUTER_API_KEY in .env to use suggestions."
+    if exc.kind == "empty":
+        return "No search ideas generated; try a different interest."
+    if exc.kind == "bad_output":
+        return "Could not understand that interest. Try rephrasing."
+    return "Could not reach the suggestion service. Try again later."
 
 
 @bot.event
@@ -131,7 +143,7 @@ async def suggest(
     try:
         repos = await gather_suggestions(interest, count)
     except llm_client.LLMError as exc:
-        await interaction.followup.send(f"Suggestion error: {exc}")
+        await interaction.followup.send(_llm_error_message(exc))
         return
     except github_client.GitHubRateLimitError:
         await interaction.followup.send("GitHub rate limit reached, try again later.")
@@ -157,7 +169,7 @@ async def on_message(message: discord.Message) -> None:
         return
     text = message.content
     mentioned = bot.user in message.mentions
-    has_trigger = any(word in text.lower() for word in TRIGGER_WORDS)
+    has_trigger = any(re.search(r"\b" + re.escape(word) + r"\b", text.lower()) for word in TRIGGER_WORDS)
     if not (mentioned or has_trigger):
         return
 
@@ -174,7 +186,7 @@ async def on_message(message: discord.Message) -> None:
     try:
         repos = await gather_suggestions(interest)
     except llm_client.LLMError as exc:
-        await message.channel.send(f"Suggestion error: {exc}")
+        await message.channel.send(_llm_error_message(exc))
         return
     except github_client.GitHubRateLimitError:
         await message.channel.send("GitHub rate limit reached, try again later.")

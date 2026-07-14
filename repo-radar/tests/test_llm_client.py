@@ -1,5 +1,6 @@
 # tests/test_llm_client.py
 import json
+import requests
 from unittest import mock
 
 import llm_client
@@ -65,3 +66,15 @@ def test_suggest_queries_empty_array():
             assert False, "expected LLMError"
         except llm_client.LLMError:
             pass
+
+
+def test_suggest_queries_network_error():
+    with mock.patch(
+        "llm_client.requests.post",
+        side_effect=requests.exceptions.RequestException("boom"),
+    ):
+        try:
+            llm_client.suggest_queries("x")
+            assert False, "expected LLMError"
+        except llm_client.LLMError as e:
+            assert e.kind == "api"
