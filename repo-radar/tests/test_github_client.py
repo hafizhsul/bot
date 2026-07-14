@@ -88,10 +88,20 @@ def test_search_repositories_success():
             }
         ]
     }
-    with mock.patch("github_client.requests.get", return_value=fake):
+    with mock.patch("github_client.requests.get", return_value=fake) as get:
         items = github_client.search_repositories("q")
     assert len(items) == 1
     assert items[0]["name"] == "a/b"
+    assert get.call_args.kwargs["params"]["sort"] == "stars"
+
+
+def test_search_repositories_passes_sort_param():
+    fake = mock.Mock()
+    fake.status_code = 200
+    fake.json.return_value = {"items": []}
+    with mock.patch("github_client.requests.get", return_value=fake) as get:
+        github_client.search_repositories("q", sort="updated")
+    assert get.call_args.kwargs["params"]["sort"] == "updated"
 
 
 def test_search_repositories_rate_limit():

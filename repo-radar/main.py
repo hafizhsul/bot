@@ -47,7 +47,7 @@ async def trending(
     await interaction.response.defer()
     try:
         query = github_client.build_trending_query(language, period)
-        repos = github_client.search_repositories(query)
+        repos = github_client.search_repositories(query, sort="updated")
     except ValueError:
         await interaction.followup.send(
             "Invalid period. Use day, week, or month."

@@ -52,10 +52,12 @@ def _parse_item(item: dict) -> dict:
     }
 
 
-def search_repositories(query: str, per_page: int = 5) -> list[dict]:
+def search_repositories(
+    query: str, per_page: int = 5, sort: str = "stars"
+) -> list[dict]:
     params = {
         "q": query,
-        "sort": "stars",
+        "sort": sort,
         "order": "desc",
         "per_page": per_page,
     }
