@@ -5,11 +5,16 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 DEFAULT_MODEL = "tencent/hy3:free"
 
 SYSTEM_PROMPT = (
-    "You are a senior software engineer performing a concise code review of a "
-    "GitHub repository. You will receive concatenated source files. Respond with "
-    "ONLY a JSON object, no markdown, with these keys: "
+    "Anda adalah senior software engineer yang melakukan code review singkat "
+    "terhadap sebuah repositori GitHub. Anda akan menerima file sumber yang "
+    "digabung. Balas HANYA dengan objek JSON, tanpa markdown, dengan key berikut: "
     "score (integer 0-10), summary (string), pros (list of strings), "
-    "cons (list of strings), risks (list of strings), suggestions (list of strings)."
+    "cons (list of strings), risks (list of strings), suggestions (list of strings). "
+    "TULIS SELURUH nilai teks (summary, pros, cons, risks, suggestions) dalam "
+    "Bahasa Indonesia yang sederhana, umum, dan mudah dipahami pemula — hindari "
+    "penjelasan terlalu teknis atau detail implementasi. Fokus pada gambaran "
+    "besar: apa kekuatan, kelemahan, dan saran praktisnya. Jangan sertakan "
+    "penjelasan di luar JSON."
 )
 
 

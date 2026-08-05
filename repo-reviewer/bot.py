@@ -16,20 +16,20 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 
 
 async def handle_review(channel, repo_url: str):
-    msg = await channel.send("⏳ Cloning repository…")
+    msg = await channel.send("⏳ Meng-clone repositori…")
     try:
         context, truncated = fetch_repo(repo_url, token=os.getenv("GITHUB_TOKEN"))
     except Exception as e:
-        await msg.edit(content=None, embed=error_embed(f"Failed to fetch repo: {e}"))
+        await msg.edit(content=None, embed=error_embed(f"Gagal mengambil repo: {e}"))
         return
     if not context.strip():
-        await msg.edit(content=None, embed=error_embed("No readable source files found."))
+        await msg.edit(content=None, embed=error_embed("Tidak ada file sumber yang bisa dibaca."))
         return
-    await msg.edit(content="🤖 Analyzing with LLM…")
+    await msg.edit(content="🤖 Menganalisis dengan LLM…")
     try:
         review = review_repo(context, os.getenv("OPENROUTER_API_KEY"))
     except Exception as e:
-        await msg.edit(content=None, embed=error_embed(f"LLM error: {e}"))
+        await msg.edit(content=None, embed=error_embed(f"Kesalahan LLM: {e}"))
         return
     await msg.edit(content=None, embed=build_embed(review, repo_url, truncated))
 
@@ -49,7 +49,7 @@ async def on_message(message):
 async def review(ctx, url: str):
     parsed = parse_repo_url(url)
     if not parsed:
-        await ctx.send(embed=error_embed("Invalid GitHub repo URL. Expected github.com/owner/repo"))
+        await ctx.send(embed=error_embed("URL repositori GitHub tidak valid. Format: github.com/owner/repo"))
         return
     repo_url = f"https://github.com/{parsed[0]}/{parsed[1]}"
     await handle_review(ctx.channel, repo_url)
