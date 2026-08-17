@@ -25,6 +25,11 @@ CASES = [
     ("https://x.com/user/status/123", "https://x.com/user/status/123"),
     # link tertanam di teks
     ("lihat ini https://youtu.be/abc123 oke", "https://youtu.be/abc123"),
+    # tanda baca akhir kalimat ikut terpotong
+    ("lihat ini https://youtu.be/abc123.", "https://youtu.be/abc123"),
+    ("https://x.com/user/status/123,", "https://x.com/user/status/123"),
+    ("(https://www.tiktok.com/@user/video/123)", "https://www.tiktok.com/@user/video/123"),
+    ("https://www.instagram.com/reel/abc/?utm=x.", "https://www.instagram.com/reel/abc/?utm=x"),
     # tidak didukung
     ("https://www.threads.com/@user/post/123", None),
     ("https://example.com/video/123", None),

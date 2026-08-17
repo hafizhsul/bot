@@ -76,7 +76,10 @@ _SUPPORTED_RE = re.compile(
 def extract_supported_url(text: str) -> str | None:
     """Ambil URL dari sumber yang didukung (YouTube, Facebook, TikTok, Instagram, X)."""
     match = _SUPPORTED_RE.search(text)
-    return match.group(0) if match else None
+    if not match:
+        return None
+    # `\S+` ikut menangkap tanda baca akhir kalimat (titik, koma, kurung, dll).
+    return re.sub(r"[.,;!?)\]}'\"\u201d\u2019]+$", "", match.group(0))
 
 
 class DownloadError(Exception):

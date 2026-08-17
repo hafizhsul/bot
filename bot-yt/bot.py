@@ -6,6 +6,7 @@ import logging
 import os
 import shutil
 import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -54,10 +55,11 @@ def _save_count(n: int) -> None:
     tmp.replace(STATS_FILE)
 
 
-def _bump_count() -> None:
+async def _bump_count() -> None:
     global _download_count
-    _download_count += 1
-    _save_count(_download_count)
+    async with _count_lock:
+        _download_count += 1
+        _save_count(_download_count)
 
 
 def _fmt_uptime(seconds: float) -> str:
@@ -73,6 +75,7 @@ def _fmt_uptime(seconds: float) -> str:
 
 
 _download_count = _load_count()
+_count_lock = asyncio.Lock()
 
 RESOLUTIONS = (144, 240, 360, 480, 720, 1080)
 
@@ -199,7 +202,7 @@ async def _download(
                 await status.reply_audio(audio=f, title=title, filename=path.name)
             else:
                 await status.reply_video(video=f, filename=path.name)
-        _bump_count()
+        await _bump_count()
     except TelegramError as e:
         await status.edit_text(f"\u274C Gagal mengirim: {e}")
     except Exception as e:
@@ -271,6 +274,9 @@ def main() -> None:
 
     app = Application.builder().token(token).build()
     app.post_init = _spawn_auto_update
+    # Bersihkan sisa dir temp download dari proses yang di-kill.
+    for stale in Path(tempfile.gettempdir()).glob("ytdl_*"):
+        shutil.rmtree(stale, ignore_errors=True)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
