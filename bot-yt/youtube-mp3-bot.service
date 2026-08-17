@@ -1,0 +1,15 @@
+[Unit]
+Description=Telegram YouTube MP3 Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ideees
+WorkingDirectory=/home/ideees/Projects/bot/bot-yt
+ExecStart=/home/ideees/Projects/bot/bot-yt/.venv/bin/python /home/ideees/Projects/bot/bot-yt/bot.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
