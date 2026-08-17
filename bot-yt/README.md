@@ -15,6 +15,18 @@ Link Facebook yang didukung: `facebook.com/watch`, `facebook.com/reel`, `faceboo
 
 Catatan: **Threads tidak didukung** — yt-dlp belum punya extractor (site redirect ke `threads.com`). Video yang butuh login (mis. X/TikTok/Instagram tertentu) bisa gagal tanpa cookie.
 
+## Cookies (opsional)
+
+Konten butuh login (IG/X/FB tertentu) bisa diunduh dengan file cookie:
+
+1. Install ekstensi browser **Get cookies.txt LOCALLY** (Chrome/Firefox).
+2. Login ke situsnya di browser, lalu ekspor cookie ke `cookies.txt` di folder bot.
+3. Restart bot. File `cookies.txt` otomatis dipakai yt-dlp (di-ignore git).
+
+## Auto-update
+
+Bot memperbarui `yt-dlp`/`curl_cffi` sendiri setiap ~24 jam lalu me-restart dirinya (tanpa downtime systemd). TikTok/X/IG sering berubah, update rutin mencegah error extractor.
+
 ## Setup
 
 Butuh **Python 3.10+** dan **ffmpeg**.

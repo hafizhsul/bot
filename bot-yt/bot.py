@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import shutil
+import sys
 import time
 from pathlib import Path
 
@@ -80,7 +81,7 @@ WELCOME = (
     "Kirim link, lalu pilih:\n"
     "\u2022 \U0001F3B5 MP3 (audio)\n"
     "\u2022 \U0001F3AC MP4 (video, pilih resolusi 144p\u20131080p)\n\n"
-    "Sumber didukung: YouTube, Facebook, TikTok, Instagram, Threads, X"
+    "Sumber didukung: YouTube, Facebook, TikTok, Instagram, X"
 )
 
 GUIDANCE = (
@@ -241,6 +242,26 @@ async def handle_resolution_choice(update: Update, context: ContextTypes.DEFAULT
     await _download(update, context, url, "mp4", max_height=max_height)
 
 
+async def _auto_update() -> None:
+    """Update yt-dlp/curl_cffi harian lalu restart sendiri (PID sama, systemd tetap)."""
+    while True:
+        await asyncio.sleep(86400)
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, "-m", "pip", "install", "-q", "-U",
+                "yt-dlp", "curl_cffi>=0.10,<0.16",
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+            )
+            if await proc.wait() == 0:
+                os.execv(sys.executable, [sys.executable, *sys.argv])
+        except Exception:
+            logger.exception("Auto-update yt-dlp gagal")
+
+
+async def _spawn_auto_update(application: Application) -> None:
+    application.create_task(_auto_update())
+
+
 def main() -> None:
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
@@ -249,6 +270,7 @@ def main() -> None:
         )
 
     app = Application.builder().token(token).build()
+    app.post_init = _spawn_auto_update
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("status", status))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))

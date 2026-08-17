@@ -47,6 +47,10 @@ CurlCFFIRH._SUPPORTED_IMPERSONATE_TARGET_MAP = {
 # Margin aman di bawah batas kirim 50 MB Telegram.
 MAX_FILE_SIZE = 45 * 1024 * 1024
 
+# Opsional: file cookie Netscape (dari browser extension "Get cookies.txt") untuk
+# konten butuh login (IG/X/FB). Jika ada, dipakai yt-dlp untuk autentikasi.
+COOKIES_FILE = Path(__file__).parent / "cookies.txt"
+
 # Tingkat kualitas saat file melebihi batas (MP3 awal 192k, MP4 awal resolusi asli).
 MP3_BITRATES = ["128k", "96k", "64k"]
 MP4_FALLBACK_HEIGHTS = (480, 360, 240, 144)
@@ -170,6 +174,8 @@ async def download_media(
         "fragment_retries": 3,
         "progress_hooks": [hook],
     }
+    if COOKIES_FILE.exists():
+        opts["cookiefile"] = str(COOKIES_FILE)
     if kind == "mp3":
         opts["postprocessors"] = [
             {
