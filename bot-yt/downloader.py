@@ -8,14 +8,33 @@ import tempfile
 from pathlib import Path
 
 import yt_dlp
+import socket
+import urllib.parse
 from curl_cffi import CurlOpt
 from curl_cffi.requests import Session
 
-# Resolver DNS lokal gagal resolve domain tanpa record AAAA (mis. TikTok) untuk
-# libcurl (curl_cffi) yang dipakai yt-dlp saat impersonation. DoH bypass-nya.
+# Resolver c-ares lokal gagal resolve sebagian host (mis. TikTok tanpa AAAA),
+# sementara DoH gagal untuk host googlevideo (geo-DNS). Strategi:
+#   - TikTok (dan hanya itu) -> DoH
+#   - host lain -> pin IP dari getaddrinfo (selalu bekerja) via CurlOpt.RESOLVE.
 DOH_URL = "https://cloudflare-dns.com/dns-query"
 
 _session_init = Session.__init__
+_session_request = Session.request
+
+
+def _patch_resolution(self, url: str) -> None:
+    host = urllib.parse.urlparse(url).hostname
+    if not host or "tiktok" in host:
+        self.curl.setopt(CurlOpt.DOH_URL, DOH_URL)
+        return
+    try:
+        ip = socket.getaddrinfo(host, 443, socket.AF_INET)[0][4][0]
+    except OSError:
+        # Host tanpa record A (mis. hanya AAAA) -> serahkan ke DoH.
+        self.curl.setopt(CurlOpt.DOH_URL, DOH_URL)
+        return
+    self.curl.setopt(CurlOpt.RESOLVE, [f"{host}:443:{ip}"])
 
 
 def _init_with_doh(self, *args, **kwargs):
@@ -23,7 +42,14 @@ def _init_with_doh(self, *args, **kwargs):
     self.curl.setopt(CurlOpt.DOH_URL, DOH_URL)
 
 
+def _request_patched(self, *args, **kwargs):
+    url = kwargs.get("url") or (args[1] if len(args) > 1 else "")
+    _patch_resolution(self, url)
+    return _session_request(self, *args, **kwargs)
+
+
 Session.__init__ = _init_with_doh
+Session.request = _request_patched
 
 from yt_dlp.networking._curlcffi import CurlCFFIRH  # noqa: E402
 from yt_dlp.networking.common import _REQUEST_HANDLERS  # noqa: E402
@@ -192,19 +218,34 @@ async def download_media(
         # Catatan: kunci "preferedformat" (typo) memang sesuai API yt-dlp.
         opts["postprocessors"] = [{"key": "FFmpegVideoRemuxer", "preferedformat": "mp4"}]
 
+    def run(opts_override=None) -> dict:
+        merged = {**opts, **(opts_override or {})}
+        return yt_dlp.YoutubeDL(merged).extract_info(url, download=True)
+
     try:
         info = None
-        for attempt in range(3):
+        tried_android = False
+        is_youtube = "youtube.com" in url or "youtu.be" in url
+        for attempt in range(4):
             try:
-                info = await loop.run_in_executor(
-                    None, lambda: yt_dlp.YoutubeDL(opts).extract_info(url, download=True)
-                )
+                info = await loop.run_in_executor(None, run)
                 break
             except yt_dlp.utils.DownloadError as e:
+                msg = str(e)
                 # TikTok kadang kasih "Unexpected response" (rate-limit); ulang dengan jeda.
-                if "Unexpected response" not in str(e) or attempt == 2:
-                    raise
-                await asyncio.sleep(2 * (attempt + 1))
+                if "Unexpected response" in msg and attempt < 2:
+                    await asyncio.sleep(2 * (attempt + 1))
+                    continue
+                # YouTube 403 dari CDN = IP server diblokir; fallback ke client android
+                # (satu-satunya yang lolos di IP datacenter, tapi resolusi terbatas).
+                if is_youtube and "403" in msg and not tried_android:
+                    tried_android = True
+                    android_opts = {
+                        "extractor_args": {"youtube": {"player_client": ["android"]}}
+                    }
+                    info = await loop.run_in_executor(None, lambda: run(android_opts))
+                    break
+                raise
         title = info.get("title") or "media"
         files = list(workdir.glob(f"*.{kind}"))
         if not files:
